@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>محاسبه قیمت فروش قطعات خودرو</title>
+<link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div class="wrap">
+    <h1>محاسبه قیمت فروش قطعات خودرو</h1>
+    <p class="subtitle">شماره فنی قطعه را وارد کنید (مثال: 04465-0K240)</p>
+
+    <form id="priceForm">
+      <input type="text" id="partNumber" placeholder="شماره فنی (Part Number)" autocomplete="off" required>
+      <button type="submit">محاسبه قیمت</button>
+    </form>
+
+    <div id="loading" class="loading hidden">در حال جستجو... لطفاً صبر کنید</div>
+    <div id="error" class="error hidden"></div>
+
+    <div id="result" class="result hidden">
+      <table>
+        <tr><th>شماره فنی</th><td id="r-partNumber"></td></tr>
+        <tr><th>نام قطعه</th><td id="r-partName"></td></tr>
+        <tr><th>برند</th><td id="r-brand"></td></tr>
+        <tr><th>موجودی</th><td id="r-stock"></td></tr>
+        <tr><th>قیمت دلاری</th><td id="r-priceUSD"></td></tr>
+        <tr><th>نرخ دلار</th><td id="r-usdRate"></td></tr>
+        <tr><th>قیمت خرید (تومان)</th><td id="r-purchasePrice"></td></tr>
+        <tr class="highlight"><th>قیمت فروش نهایی (تومان)</th><td id="r-finalPrice"></td></tr>
+        <tr><th>تاریخ و ساعت محاسبه</th><td id="r-calculatedAt"></td></tr>
+      </table>
+    </div>
+  </div>
+
+<script>
+const form = document.getElementById('priceForm');
+const loading = document.getElementById('loading');
+const errorBox = document.getElementById('error');
+const resultBox = document.getElementById('result');
+
+function fmt(num) {
+  if (num === undefined || num === null || isNaN(num)) return '-';
+  return Number(num).toLocaleString('fa-IR');
+}
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const partNumber = document.getElementById('partNumber').value.trim();
+  if (!partNumber) return;
+
+  errorBox.classList.add('hidden');
+  resultBox.classList.add('hidden');
+  loading.classList.remove('hidden');
+
+  try {
+    const res = await fetch('/api/price', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ partNumber })
+    });
+    const data = await res.json();
+    loading.classList.add('hidden');
+
+    if (data.status === 'success') {
+      document.getElementById('r-partNumber').textContent = data.partNumber;
+      document.getElementById('r-partName').textContent = data.partName || '-';
+      document.getElementById('r-brand').textContent = data.brand || '-';
+      document.getElementById('r-stock').textContent = data.stock || '-';
+      document.getElementById('r-priceUSD').textContent = fmt(data.priceUSD) + ' $';
+      document.getElementById('r-usdRate').textContent = fmt(data.usdRateToman) + ' تومان';
+      document.getElementById('r-purchasePrice').textContent = fmt(data.purchasePriceToman) + ' تومان';
+      document.getElementById('r-finalPrice').textContent = fmt(data.finalPriceToman) + ' تومان';
+      document.getElementById('r-calculatedAt').textContent = data.calculatedAt;
+      resultBox.classList.remove('hidden');
+    } else if (data.status === 'not_found') {
+      errorBox.textContent = 'Part Number Not Found — قطعه‌ای با این شماره فنی پیدا نشد.';
+      errorBox.classList.remove('hidden');
+    } else {
+      errorBox.textContent = data.message || 'خطایی رخ داد.';
+      errorBox.classList.remove('hidden');
+    }
+  } catch (err) {
+    loading.classList.add('hidden');
+    errorBox.textContent = 'خطا در ارتباط با سرور محلی.';
+    errorBox.classList.remove('hidden');
+  }
+});
+</script>
+</body>
+</html>
